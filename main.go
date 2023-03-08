@@ -2,61 +2,30 @@ package main
 
 import (
 	"context"
-
 	"github.com/amzn/ion-go/ion"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/qldbsession"
-	"github.com/awslabs/amazon-qldb-driver-go/v2/qldbdriver"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/qldbsession"
+	"github.com/awslabs/amazon-qldb-driver-go/v3/qldbdriver"
 	log "github.com/sirupsen/logrus"
 )
 
+type Person struct {
+	FirstName string `ion:"firstName"`
+	LastName  string `ion:"lastName"`
+	Age       int    `ion:"age"`
+}
+
 func main() {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		panic(err)
+	}
 
-	/*
-		// Run localstack from go
-		// localstack wrapper
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-
-			l, err := localstack.NewInstance()
-			if err != nil {
-				log.Fatalf("Could not connect to Docker %v", err)
-			}
-			if err := l.StartWithContext(ctx); err != nil {
-				log.Fatalf("Could not start localstack %v", err)
-			}
-
-			cfg, err := config.LoadDefaultConfig(ctx,
-				config.WithRegion("us-east-1"),
-				config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(func(_, _ string, _ ...interface{}) (aws.Endpoint, error) {
-					return aws.Endpoint{
-						PartitionID:       "aws",
-						URL:               l.EndpointV2(localstack.SQS),
-						SigningRegion:     "us-east-1",
-						HostnameImmutable: true,
-					}, nil
-				})),
-				config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("dummy", "dummy", "dummy")),
-			)
-			if err != nil {
-				log.Fatalf("Could not get config %v", err)
-			}
-
-			log.Printf("Config: %v", cfg)*/
-
-	awsSession, _ := session.NewSession(&aws.Config{
-		Region:      aws.String("us-east-1"),
-		Credentials: credentials.NewStaticCredentials("test", "test", ""),
-		Endpoint:    aws.String("http://localhost:4566"),
+	qldbSession := qldbsession.NewFromConfig(cfg, func(options *qldbsession.Options) {
+		options.Region = "us-east-2"
 	})
-
-	qldbSession := qldbsession.New(awsSession)
-	log.Printf("QLDB Session: %v", qldbSession)
-
 	driver, err := qldbdriver.New(
-		"test",
+		"test-ledger",
 		qldbSession,
 		func(options *qldbdriver.DriverOptions) {
 			options.LoggerVerbosity = qldbdriver.LogInfo
@@ -64,8 +33,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	defer driver.Shutdown(context.Background())
 
+	// creates a transaction and executes statements
 	_, err = driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
 		_, err := txn.Execute("CREATE TABLE People")
 		if err != nil {
@@ -94,8 +65,7 @@ func main() {
 		return nil, nil
 	})
 	if err != nil {
-		log.Printf("Error creating table: %v", err)
-		panic(err)
+		log.Errorf("Error creating table: %v", err)
 	}
 
 	_, err = driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
@@ -103,12 +73,6 @@ func main() {
 	})
 	if err != nil {
 		panic(err)
-	}
-
-	type Person struct {
-		FirstName string `ion:"firstName"`
-		LastName  string `ion:"lastName"`
-		Age       int    `ion:"age"`
 	}
 
 	person := Person{"John", "Doe", 54}
@@ -202,12 +166,5 @@ func main() {
 
 	log.Printf("Found People: %v", people)
 
-	_, err = driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
-		return txn.Execute("DROP TABLE People")
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	log.Printf("Done, dropped table People")
+	// don't delete the table, so we can run the example again
 }
