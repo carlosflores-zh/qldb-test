@@ -13,39 +13,6 @@ import (
 )
 
 func main() {
-
-	/*
-		// Run localstack from go
-		// localstack wrapper
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-
-			l, err := localstack.NewInstance()
-			if err != nil {
-				log.Fatalf("Could not connect to Docker %v", err)
-			}
-			if err := l.StartWithContext(ctx); err != nil {
-				log.Fatalf("Could not start localstack %v", err)
-			}
-
-			cfg, err := config.LoadDefaultConfig(ctx,
-				config.WithRegion("us-east-1"),
-				config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(func(_, _ string, _ ...interface{}) (aws.Endpoint, error) {
-					return aws.Endpoint{
-						PartitionID:       "aws",
-						URL:               l.EndpointV2(localstack.SQS),
-						SigningRegion:     "us-east-1",
-						HostnameImmutable: true,
-					}, nil
-				})),
-				config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("dummy", "dummy", "dummy")),
-			)
-			if err != nil {
-				log.Fatalf("Could not get config %v", err)
-			}
-
-			log.Printf("Config: %v", cfg)*/
-
 	awsSession, _ := session.NewSession(&aws.Config{
 		Region:      aws.String("us-east-1"),
 		Credentials: credentials.NewStaticCredentials("test", "test", ""),
