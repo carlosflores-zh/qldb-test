@@ -1,18 +1,11 @@
 QLDB test:
- - Requires localstack pro account
-based on:
-- https://github.com/localstack/localstack-pro-samples/tree/master/qldb-ledger-queries
-- https://amazon-ion.github.io/ion-docs/
-- https://github.com/localstack/localstack-pro-samples/tree/master/qldb-ledger-queries
-- https://docs.aws.amazon.com/qldb/latest/developerguide/driver-quickstart-golang.html
-
-Localstack:
-- make install
-- make start
-- make create-ledger
-- make run
+- this app executes simple transactions moving funds from one account to another, and inserting the tx data to QLDB this generates events in a kinesis stream.
+- right now it only have two tables in the ledger, transaction and signer.
 
 AWS:
 - set up aws env var credentials
 - created ledger on aws console
 - go run main.go
+
+
+- looks like transaction is a reserved word in QLDB, so I had to change the table name to transaction_chain
