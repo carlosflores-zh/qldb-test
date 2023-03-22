@@ -3,19 +3,44 @@ package storage
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"github.com/amzn/ion-go/ion"
-	"os"
-
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/qldbsession"
+	"github.com/carflores-zh/qldb-go/pkg/model"
+	"os"
+
 	"github.com/awslabs/amazon-qldb-driver-go/v3/qldbdriver"
 	log "github.com/sirupsen/logrus"
-
-	"qldb-test/model"
 )
 
 type DB struct {
-	Driver *qldbdriver.QLDBDriver
+	Driver     *qldbdriver.QLDBDriver
+	LedgerName string
+}
+
+func Connect(ctx context.Context, region string, ledgerName string) (driver *qldbdriver.QLDBDriver, err error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		log.Errorf("error loading config: %v", err)
+	}
+
+	qldbSession := qldbsession.NewFromConfig(cfg, func(options *qldbsession.Options) {
+		options.Region = region
+		options.RetryMaxAttempts = 3
+	})
+
+	driver, err = qldbdriver.New(
+		ledgerName,
+		qldbSession,
+		func(options *qldbdriver.DriverOptions) {
+			options.LoggerVerbosity = qldbdriver.LogInfo
+		})
+	if err != nil {
+		log.Printf("error creating Driver: %v", err)
+	}
+
+	return driver, nil
 }
 
 func (db *DB) InsertTx(tx *model.TransactionLog) error {
@@ -37,7 +62,7 @@ type metadata struct {
 }
 
 func (db *DB) SelectContractVersion(id string) ([]metadata, error) {
-	var versions []metadata
+	var resultMetadata []metadata
 	c, err := db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
 		result, err := txn.Execute("SELECT metadata.version from history(Contract) where data.id = ?", id)
 		if err != nil {
@@ -66,45 +91,49 @@ func (db *DB) SelectContractVersion(id string) ([]metadata, error) {
 		return nil, err
 	}
 
-	versions = c.([]metadata)
+	resultMetadata = c.([]metadata)
 
-	return versions, nil
+	return resultMetadata, nil
 }
 
-// SelectContractDataHash If we get datahashes this means someone has redacted the data
-func (db *DB) SelectContractDataHash() ([]metadata, error) {
-	var versions []metadata
-	c, err := db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
-		result, err := txn.Execute("SELECT dataHash,metadata.version from history(Contract)")
+type ResponseHasDataRedaction struct {
+	CountHashes int `ion:"countHashes"`
+}
+
+// HasDataRedaction If we get datahashes this means someone has redacted the data
+func (db *DB) HasDataRedaction(tableName string) (bool, error) {
+	result, err := db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
+		countSelect, err := txn.Execute(fmt.Sprintf("SELECT count(dataHash) as countHashes from history(%s)", tableName))
 		if err != nil {
 			return nil, err
 		}
 
-		var versions []metadata
-		for result.Next(txn) {
-			ionBinary := result.GetCurrentData()
+		countSelect.Next(txn)
+		ionBinary := countSelect.GetCurrentData()
 
-			temp := new(metadata)
-			err = ion.Unmarshal(ionBinary, temp)
-			if err != nil {
-				return nil, err
-			}
-
-			versions = append(versions, *temp)
-		}
-		if result.Err() != nil {
-			return nil, result.Err()
+		temp := new(ResponseHasDataRedaction)
+		err = ion.Unmarshal(ionBinary, temp)
+		if err != nil {
+			return nil, err
 		}
 
-		return versions, nil
+		if countSelect.Err() != nil {
+			return nil, countSelect.Err()
+		}
+
+		return temp, nil
 	})
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	versions = c.([]metadata)
+	resultRedaction := result.(*ResponseHasDataRedaction)
 
-	return versions, nil
+	if resultRedaction.CountHashes > 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (db *DB) SelectContractInstance(id string, version int) ([]model.Contract, error) {
@@ -203,29 +232,6 @@ func (db *DB) UpdateContract(contract *model.Contract) error {
 	return nil
 }
 
-func Connect(region string, ledgerName string) (driver *qldbdriver.QLDBDriver, err error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Errorf("Error loading config: %v", err)
-	}
-
-	qldbSession := qldbsession.NewFromConfig(cfg, func(options *qldbsession.Options) {
-		options.Region = region
-	})
-
-	driver, err = qldbdriver.New(
-		ledgerName,
-		qldbSession,
-		func(options *qldbdriver.DriverOptions) {
-			options.LoggerVerbosity = qldbdriver.LogInfo
-		})
-	if err != nil {
-		log.Printf("Error creating Driver: %v", err)
-	}
-
-	return driver, nil
-}
-
 func (db *DB) MigrateQLDB(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -238,8 +244,8 @@ func (db *DB) MigrateQLDB(path string) error {
 	// creates a transaction and executes statements
 	_, err = db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
 		for scanner.Scan() {
-			_, err := txn.Execute(scanner.Text())
-			if err != nil {
+			_, errScan := txn.Execute(scanner.Text())
+			if errScan != nil {
 				log.Errorf("Error creating table {%s}: %v", scanner.Text(), err)
 			}
 		}

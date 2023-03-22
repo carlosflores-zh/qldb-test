@@ -1,11 +1,13 @@
-QLDB test:
-- this app executes simple transactions moving funds from one account to another, and inserting the tx data to QLDB this generates events in a kinesis stream.
-- right now it only have two tables in the ledger, transaction and signer.
+# QLDB test 2:
+- make run-test-app:
+  - executes the main app that test several SQL applications
 
-AWS:
-- set up aws env var credentials
-- created ledger on aws console
-- go run main.go
+- make run-migrates:
+  - executes the migrations to create the tables and indexes
 
 
-- looks like transaction is a reserved word in QLDB, so I had to change the table name to transaction_chain
+# Important directories:
+- /pkg/model: contains the models of the tables
+- /sql: contains the SQL files to create the tables and indexes
+- /storage: contains the functions to interact with the database
+- /cmd: contains the main app to test the database
