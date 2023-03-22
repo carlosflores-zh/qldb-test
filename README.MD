@@ -1,12 +1,13 @@
-QLDB test:
- - Requires localstack pro account
-based on:
-    https://github.com/localstack/localstack-pro-samples/tree/master/qldb-ledger-queries
-    https://amazon-ion.github.io/ion-docs/
-    https://github.com/localstack/localstack-pro-samples/tree/master/qldb-ledger-queries
+# QLDB test 2:
+- make run-test-app:
+  - executes the main app that test several SQL applications
 
-How to run:
-    - make install
-    - make start
-    - make create-ledger
-    - make run
+- make run-migrates:
+  - executes the migrations to create the tables and indexes
+
+
+# Important directories:
+- /pkg/model: contains the models of the tables
+- /sql: contains the SQL files to create the tables and indexes
+- /storage: contains the functions to interact with the database
+- /cmd: contains the main app to test the database

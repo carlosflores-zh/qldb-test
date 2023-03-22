@@ -1,7 +1,3 @@
-export AWS_ACCESS_KEY_ID ?= test
-export AWS_SECRET_ACCESS_KEY ?= test
-export AWS_DEFAULT_REGION = us-east-1
-
 usage:      ## Show this help
 	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
 
@@ -9,8 +5,19 @@ install:    ## Install dependencies
 	@which localstack || pip install localstack
 	@which awslocal || pip install awscli-local
 
-run:        ## Run the sample queries against the local QLDB API
-	go run main.go
+run-migrate:
+	go run cmd/migrate/main.go us-east-2 ledger sql/migration.sql
+
+run-test-app:
+	go run cmd/test-app/main.go
+
+lint: ## Runs lint
+	@if [[ -n "$(out)" ]]; then \
+		mkdir -p $$(dirname "$(out)"); \
+		golangci-lint run -v --out-format=checkstyle > "$(out)"; \
+	else \
+		golangci-lint run -v; \
+	fi
 
 start:
 	LOCALSTACK_API_KEY=xxxxx DEBUG=1 localstack start -d
