@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/amzn/ion-go/ion"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/qldb"
 	"github.com/aws/aws-sdk-go-v2/service/qldbsession"
 	"github.com/carflores-zh/qldb-go/pkg/model"
 	"os"
@@ -16,16 +17,22 @@ import (
 
 type DB struct {
 	Driver     *qldbdriver.QLDBDriver
+	Client     *qldb.Client
 	LedgerName string
 }
 
-func Connect(ctx context.Context, region string, ledgerName string) (driver *qldbdriver.QLDBDriver, err error) {
+func Connect(ctx context.Context, region string, ledgerName string) (driver *qldbdriver.QLDBDriver, client *qldb.Client, err error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		log.Errorf("error loading config: %v", err)
 	}
 
 	qldbSession := qldbsession.NewFromConfig(cfg, func(options *qldbsession.Options) {
+		options.Region = region
+		options.RetryMaxAttempts = 3
+	})
+
+	qldbClient := qldb.NewFromConfig(cfg, func(options *qldb.Options) {
 		options.Region = region
 		options.RetryMaxAttempts = 3
 	})
@@ -40,7 +47,7 @@ func Connect(ctx context.Context, region string, ledgerName string) (driver *qld
 		log.Printf("error creating Driver: %v", err)
 	}
 
-	return driver, nil
+	return driver, qldbClient, nil
 }
 
 func (db *DB) InsertTx(tx *model.TransactionLog) error {
