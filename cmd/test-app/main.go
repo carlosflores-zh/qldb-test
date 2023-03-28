@@ -17,7 +17,7 @@ const region = "us-east-2"
 func main() {
 	ctx := context.Background()
 
-	driver, err := storage.Connect(ctx, region, ledgerName)
+	driver, client, err := storage.Connect(ctx, region, ledgerName)
 	if err != nil {
 		log.Errorf("error connecting/creating: %v", err)
 	}
@@ -26,6 +26,7 @@ func main() {
 
 	dbStorage := &storage.DB{
 		Driver: driver,
+		Client: client,
 	}
 
 	testContract := &model.Contract{

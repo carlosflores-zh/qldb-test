@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/amzn/ion-go v1.1.3
 	github.com/aws/aws-sdk-go-v2/config v1.17.10
+	github.com/aws/aws-sdk-go-v2/service/qldb v1.14.20
 	github.com/aws/aws-sdk-go-v2/service/qldbsession v1.13.19
 	github.com/awslabs/amazon-qldb-driver-go/v3 v3.0.1
 	github.com/sirupsen/logrus v1.9.0
