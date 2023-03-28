@@ -49,7 +49,6 @@ func main() {
 	_, err = dbStorage.Client.CreateLedger(ctx, &ledgerInput)
 	if err != nil {
 		log.Errorf("error creating ledger: %v", err)
-		return
 	}
 
 	// validate and continue if ledger already exists

@@ -3,6 +3,7 @@ package storage
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/amzn/ion-go/ion"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -222,6 +223,31 @@ func (db *DB) InsertContract(contract *model.Contract) error {
 	if err != nil {
 		log.Errorf("Error inserting contract: %v", err)
 		return err
+	}
+
+	return nil
+}
+
+func (db *DB) InsertContractTx(contract *model.Contract) error {
+	_, err := db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
+		_, err := txn.Execute("INSERT INTO Contract ?", contract)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = txn.Execute("INSERT INTO ControlRecord ?", contract)
+		if err != nil {
+			return nil, err
+		}
+
+		if true {
+			return nil, errors.New("error")
+		}
+
+		return nil, nil
+	})
+	if err != nil {
+		log.Errorf("Error inserting contract: %v", err)
 	}
 
 	return nil

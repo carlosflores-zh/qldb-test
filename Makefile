@@ -11,6 +11,9 @@ run-migrate:
 run-test-app:
 	go run cmd/test-app/main.go
 
+run-test-transaction:
+	go run cmd/transaction/main.go
+
 lint: ## Runs lint
 	@if [[ -n "$(out)" ]]; then \
 		mkdir -p $$(dirname "$(out)"); \
