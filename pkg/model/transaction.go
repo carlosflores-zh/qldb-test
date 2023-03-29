@@ -2,6 +2,8 @@ package model
 
 import "math/big"
 
+// TODO: add inventory of all the images valid
+
 // TransactionLog represents a transaction on any blockchain
 type TransactionLog struct {
 	TxID  string   `ion:"txID"`

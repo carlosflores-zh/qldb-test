@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/qldbsession v1.13.19
 	github.com/awslabs/amazon-qldb-driver-go/v3 v3.0.1
 	github.com/sirupsen/logrus v1.9.0
+	github.com/spf13/cast v1.5.0
 )
 
 require (

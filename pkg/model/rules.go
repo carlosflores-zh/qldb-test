@@ -11,20 +11,6 @@ type Control struct {
 	CreatedBy  string `ion:"createdBy"`
 }
 
-// ShamirShare represents the shamir shard?
-type ShamirShare struct {
-	Id         string `ion:"id"`
-	Signature1 string `ion:"signature1"`
-	Owner      string `ion:"owner"`
-	Material   string `ion:"material"`
-	Status     string `ion:"status"`
-}
-
-type PrivateKey struct {
-	Id           string `ion:"id"`
-	EncryptedKey string `ion:"encryptedKey"`
-}
-
 type Contract struct {
 	Id        string `ion:"id"`
 	Address   string `ion:"address"`

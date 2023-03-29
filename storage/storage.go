@@ -10,7 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/qldb"
 	"github.com/aws/aws-sdk-go-v2/service/qldbsession"
 	"github.com/carflores-zh/qldb-go/pkg/model"
+	"github.com/spf13/cast"
 	"os"
+	"time"
 
 	"github.com/awslabs/amazon-qldb-driver-go/v3/qldbdriver"
 	log "github.com/sirupsen/logrus"
@@ -265,31 +267,77 @@ func (db *DB) UpdateContract(contract *model.Contract) error {
 	return nil
 }
 
-func (db *DB) MigrateQLDB(path string) error {
-	file, err := os.Open(path)
+func (db *DB) MigrateQLDB(path string, version int) error {
+	migrations, err := db.GetMigrations()
 	if err != nil {
-		return err
+		log.Printf("no migrations found")
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	mostRecent := model.Migration{
+		Version:   0,
+		UpdatedAt: time.Time{},
+	}
 
-	// creates a transaction and executes statements
-	_, err = db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
-		for scanner.Scan() {
-			_, errScan := txn.Execute(scanner.Text())
-			if errScan != nil {
-				log.Errorf("Error creating table {%s}: %v", scanner.Text(), err)
-			}
+	for _, migration := range migrations {
+		log.Printf("Migration %d already executed", version)
+
+		if migration.UpdatedAt.After(mostRecent.UpdatedAt) {
+			mostRecent = migration
 		}
-		return nil, nil
-	})
-	if err != nil {
-		log.Errorf("Error creating tables: %v", err)
 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Errorf("Error reading file: %v", err)
+	if mostRecent.Version == version || mostRecent.Version > version {
+		log.Printf("Migration %d already executed", version)
+		return nil
+	} else {
+		log.Printf("Migration %d not executed yet", version)
+	}
+
+	log.Printf("Executing migrations from %d to %d", mostRecent.Version, version)
+
+	for i := mostRecent.Version; i <= version; i++ {
+		fullPath := path + "up/" + cast.ToString(i) + "-migration.sql"
+
+		log.Printf("Executing migration %s", fullPath)
+
+		file, err := os.Open(fullPath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		// creates a transaction and executes statements
+		_, err = db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
+			for scanner.Scan() {
+				_, errScan := txn.Execute(scanner.Text())
+				if errScan != nil {
+					log.Errorf("Error creating table {%s}: %v", scanner.Text(), err)
+				}
+			}
+			return nil, nil
+		})
+		if err != nil {
+			log.Errorf("Error creating tables: %v", err)
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Errorf("Error reading file: %v", err)
+		}
+
+		time.Sleep(5 * time.Second)
+
+		migration := model.Migration{
+			Version:   i,
+			UpdatedAt: time.Now(),
+			Active:    true,
+		}
+
+		err = db.InsertMigration(migration)
+		if err != nil {
+			log.Errorf("Error inserting migration: %v", err)
+		}
 	}
 
 	return nil
@@ -331,3 +379,67 @@ func QueryTX(Driver *qldbdriver.QLDBDriver, query string) (int, []Transaction, e
 	return len(people), people, err
 }
 */
+
+// migration funcs
+
+func (db *DB) InsertMigration(migration model.Migration) error {
+	migration.UpdatedAt = time.Now()
+
+	migrations, err := db.GetMigrations()
+	if err != nil {
+		log.Printf("no migrations found")
+	}
+
+	for _, migration := range migrations {
+		log.Printf("Migration: %v", migration)
+		if migration.Version == migration.Version {
+			log.Printf("Migration already exists")
+			return nil
+		}
+	}
+
+	_, err = db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
+		return txn.Execute("INSERT INTO Migration ?", migration)
+	})
+	if err != nil {
+		log.Errorf("Error inserting migration: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) GetMigrations() ([]model.Migration, error) {
+	var resultMigrations []model.Migration
+	c, err := db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
+		result, err := txn.Execute("SELECT version, updateAt, active  FROM Migration")
+		if err != nil {
+			return nil, err
+		}
+
+		var versions []model.Migration
+		for result.Next(txn) {
+			ionBinary := result.GetCurrentData()
+
+			temp := new(model.Migration)
+			err = ion.Unmarshal(ionBinary, temp)
+			if err != nil {
+				return nil, err
+			}
+
+			versions = append(versions, *temp)
+		}
+		if result.Err() != nil {
+			return nil, result.Err()
+		}
+
+		return versions, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resultMigrations = c.([]model.Migration)
+
+	return resultMigrations, nil
+}

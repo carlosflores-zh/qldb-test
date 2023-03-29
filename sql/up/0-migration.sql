@@ -1,3 +1,4 @@
+CREATE TABLE Migration;
 CREATE TABLE TransactionLog;
 CREATE INDEX ON TransactionLog(TxID);
 CREATE INDEX ON TransactionLog(ToAddress);
@@ -7,4 +8,4 @@ CREATE TABLE ControlRecord;
 CREATE INDEX ON ControlRecord(Status);
 CREATE TABLE Contract;
 CREATE INDEX ON Contract(Hash);
-CREATE TABLE ShamirShare;
+CREATE TABLE Share;

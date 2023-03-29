@@ -6,13 +6,16 @@ install:    ## Install dependencies
 	@which awslocal || pip install awscli-local
 
 run-migrate:
-	go run cmd/migrate/main.go us-east-2 ledger sql/migration.sql
+	go run cmd/migrate/main.go us-east-2 ledger 1
 
 run-test-app:
 	go run cmd/test-app/main.go
 
 run-test-transaction:
 	go run cmd/transaction/main.go
+
+run-delete:
+	go run cmd/delete/main.go us-east-2 ledger
 
 lint: ## Runs lint
 	@if [[ -n "$(out)" ]]; then \
