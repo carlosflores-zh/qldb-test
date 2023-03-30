@@ -1,0 +1,71 @@
+@startuml
+title DB
+namespace model {
+    class Contract << (S,Aquamarine) >> {
+        + ID string
+        + Address string
+        + Input string
+        + Output string
+        + Network string
+        + SendFunds bool
+        + Execution bool
+
+    }
+    class Control << (S,Aquamarine) >> {
+        + ID string
+        + Signature1 string
+        + Signature2 string
+        + Table string
+        + DocumentID string
+        + Version int
+
+    }
+    class Image << (S,Aquamarine) >> {
+        + ID string
+        + Document []byte
+        + Signature1 string
+        + Signature2 string
+
+    }
+    class Migration << (S,Aquamarine) >> {
+        + Version int
+        + UpdatedAt time.Time
+        + Active bool
+
+    }
+    class PrivateKey << (S,Aquamarine) >> {
+        + ID string
+        + Note string
+        + EncryptedKey string
+
+    }
+    class Share << (S,Aquamarine) >> {
+        + ID string
+        + Signature1 string
+        + Owner string
+        + Material string
+        + Status string
+
+    }
+    class Signer << (S,Aquamarine) >> {
+        + ID string
+        + PublicAddress string
+        + Type string
+
+    }
+    class TransactionLog << (S,Aquamarine) >> {
+        + ID string
+        + TxID string
+        + Nonce uint64
+        + Fee *big.Int
+        + To string
+        + From string
+        + Value *big.Int
+        + Data []byte
+        + Block uint64
+
+    }
+}
+
+
+@enduml

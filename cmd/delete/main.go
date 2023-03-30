@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
+	"os"
+
 	"github.com/aws/aws-sdk-go-v2/service/qldb"
-	"github.com/carflores-zh/qldb-go/storage"
+	"github.com/carflores-zh/qldb-go/pkg/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
-	"os"
 )
 
 // PARAM 0: region
@@ -18,15 +19,16 @@ func main() {
 	region := params[0]
 
 	ctx := context.Background()
+	awsEndpoint := "http://localhost:4566"
 
-	driver, client, err := storage.Connect(ctx, region, "ledger")
+	driver, client, err := storage.Connect(awsEndpoint, region, "ledger")
 	if err != nil {
 		log.Errorf("error connecting/creating: %v", err)
 	}
 
 	defer driver.Shutdown(context.Background())
 
-	dbStorage := &storage.DB{
+	dbStorage := &storage.Store{
 		Driver: driver,
 		Client: client,
 	}
@@ -43,6 +45,7 @@ func main() {
 		log.Printf("deleting ledger: %s", ledgerName)
 
 		deleteProtection := false
+
 		_, err := dbStorage.Client.UpdateLedger(ctx, &qldb.UpdateLedgerInput{
 			Name:               &ledgerName,
 			DeletionProtection: &deleteProtection,

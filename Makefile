@@ -6,12 +6,12 @@ install:    ## Install dependencies
 	@which awslocal || pip install awscli-local
 
 run-migrate:
-	go run cmd/migrate/main.go us-east-2 ledger 1
+	go run cmd/migrate/main.go us-east-2 ledger 2
 
-run-test-app:
+run-app:
 	go run cmd/test-app/main.go
 
-run-test-transaction:
+run-transaction:
 	go run cmd/transaction/main.go
 
 run-delete:
@@ -26,7 +26,8 @@ lint: ## Runs lint
 	fi
 
 start:
-	LOCALSTACK_API_KEY=xxxxx DEBUG=1 localstack start -d
+	@echo LOCALSTACK_API_KEY=$(LOCALSTACK_API_KEY)
+	localstack start -d
 
 create-ledger:
 	awslocal qldb create-ledger --name test --permissions-mode ALLOW_ALL --endpoint-url=http://localhost:4566
@@ -42,5 +43,8 @@ test-ci:
 	make start install ready run; return_code=`echo $$?`;\
 	make logs; make stop; exit $$return_code;
 
-.PHONY: usage install start run stop logs test-ci
+diagrams:
+	goplantuml -title DB -ignore metadata pkg/model/ > diagrams/classes.puml
+
+.PHONY: usage install start run stop logs test-ci diagrams
 
