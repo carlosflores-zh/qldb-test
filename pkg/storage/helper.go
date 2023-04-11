@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cast"
 
 	"github.com/carflores-zh/qldb-go/pkg/model"
@@ -14,7 +14,7 @@ import (
 
 func closeFile(file *os.File) {
 	if err := file.Close(); err != nil {
-		log.Errorf("Error closing file: %v", err)
+		log.Error().Err(err).Msg("error closing file")
 	}
 }
 
@@ -53,17 +53,17 @@ func getMigrationDirection(mostRecent model.Migration, version int) string {
 
 func getMostRecentVersion(migrations []model.Migration) model.Migration {
 	mostRecent := model.Migration{
-		Version:   -1,
-		UpdatedAt: time.Time{},
+		Version:    0,
+		MigratedAt: time.Time{},
 	}
 
 	for _, migration := range migrations {
-		if migration.UpdatedAt.After(mostRecent.UpdatedAt) {
+		if migration.MigratedAt.After(mostRecent.MigratedAt) {
 			mostRecent = migration
 		}
 	}
 
-	log.Printf("most recent version: %d", mostRecent.Version)
+	log.Info().Int("version", mostRecent.Version).Msg("most recent version")
 
 	return mostRecent
 }

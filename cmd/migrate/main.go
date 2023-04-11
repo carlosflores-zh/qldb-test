@@ -5,17 +5,17 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/qldb"
 	"github.com/aws/aws-sdk-go-v2/service/qldb/types"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cast"
 
 	"github.com/carflores-zh/qldb-go/pkg/storage"
 )
 
-const minutes3 = 180
+const time3Minutes = 3 * time.Minute
 const inputParams = 3
-const awsEndpoint = "http://localhost:4566"
 
 // PARAM 0: region
 // PARAM 1: ledger name
@@ -25,26 +25,30 @@ func main() {
 	params := os.Args[1:]
 
 	if len(params) < inputParams {
-		log.Fatalf("missing parameters")
+		log.Fatal().Msg("not enough params")
 	}
 
 	region := params[0]
 	ledgerName := params[1]
 	version := cast.ToInt(params[2])
 
-	log.Printf("starting migration for region: %s, ledger: %s, version: %d", region, ledgerName, version)
+	log.Info().Str("region", region).Str("ledger", ledgerName).Int("version", version).Msg("starting migration")
 
-	driver, client, err := storage.Connect(awsEndpoint, region, ledgerName)
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(region),
+	)
 	if err != nil {
-		log.Errorf("error connecting/creating: %v", err)
+		log.Error().Err(err).Msg("error loading config")
+		return
 	}
 
-	defer driver.Shutdown(context.Background())
-
-	dbStorage := &storage.Store{
-		Driver: driver,
-		Client: client,
+	db, err := storage.NewMigrator(cfg, ledgerName)
+	if err != nil {
+		log.Error().Err(err).Msg("error connecting/creating")
+		return
 	}
+
+	defer db.Driver.Shutdown(context.TODO())
 
 	ledgerInput := qldb.CreateLedgerInput{
 		Name:            &ledgerName,
@@ -56,27 +60,26 @@ func main() {
 	// create ledger and wait for it to be active
 	for {
 		// getting the list of ledgers
-		list, errList := dbStorage.Client.ListLedgers(ctx, nil)
+		list, errList := db.Client.ListLedgers(ctx, nil)
 		if errList != nil {
-			log.Errorf("error listing ledgers: %+v", errList)
+			log.Error().Err(errList).Msg("error listing ledgers")
 			return
 		}
 
 		index := -1
 
 		for i, ledger := range list.Ledgers {
-			// check if ledger exists
 			if *ledger.Name == ledgerName {
 				index = i
 			}
 		}
 
 		if index == -1 {
-			log.Printf("ledger not found: %s, creating it...", ledgerName)
+			log.Info().Str("ledger", ledgerName).Msg("ledger not found, creating it")
 
-			_, err = dbStorage.Client.CreateLedger(ctx, &ledgerInput)
+			_, err = db.Client.CreateLedger(ctx, &ledgerInput)
 			if err != nil {
-				log.Errorf("error creating ledger: %v", errList)
+				log.Error().Err(err).Msg("error creating ledger")
 			}
 
 			continue
@@ -85,14 +88,14 @@ func main() {
 		if list.Ledgers[index].State == types.LedgerStateActive {
 			break
 		} else {
-			log.Printf("ledger not active yet: %s", list.Ledgers[index].State)
-			time.Sleep(minutes3 * time.Second)
+			log.Info().Str("ledger", ledgerName).Str("state", string(list.Ledgers[index].State)).Msg("waiting 3 minutes for ledger to be active")
+			time.Sleep(time3Minutes)
 		}
 	}
 
-	err = dbStorage.MigrateQLDB("sql/", version)
+	err = db.MigrateQLDB("sql/", version)
 	if err != nil {
-		log.Errorf("migration failed: %v \n canceling migration", err)
+		log.Error().Err(err).Msg("migration failed")
 		return
 	}
 }

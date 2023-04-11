@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/amzn/ion-go/ion"
 	"github.com/awslabs/amazon-qldb-driver-go/v3/qldbdriver"
@@ -11,8 +10,8 @@ import (
 	"github.com/carflores-zh/qldb-go/pkg/model/metadata"
 )
 
-func (s *Store) InsertImage(image *model.Image) error {
-	_, err := s.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
+func (db *DB) InsertImage(image *model.Image) error {
+	_, err := db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
 		temp := new(metadata.Result)
 		image.ID = ""
 
@@ -29,16 +28,10 @@ func (s *Store) InsertImage(image *model.Image) error {
 
 		image.ID = temp.DocumentID
 
-		log.Println("Image ID: ", image.ID, temp)
-
-		result, err = txn.Execute("UPDATE Image AS i SET i.id = ? WHERE i.imageId = ?", temp.DocumentID, image.ImageID)
+		_, err = txn.Execute("UPDATE Image AS i SET i.id = ? WHERE i.imageId = ?", temp.DocumentID, image.ImageID)
 		if err != nil {
-			log.Printf("Error updating image: %v", err)
 			return nil, err
 		}
-
-		result.Next(txn)
-		log.Printf("Result: %v", string(result.GetCurrentData()))
 
 		return nil, nil
 	})
@@ -46,10 +39,10 @@ func (s *Store) InsertImage(image *model.Image) error {
 	return err
 }
 
-func (s *Store) GetAllImages() ([]model.Image, error) {
+func (db *DB) GetAllImages() ([]model.Image, error) {
 	var images []model.Image
 
-	c, err := s.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
+	c, err := db.Driver.Execute(context.Background(), func(txn qldbdriver.Transaction) (interface{}, error) {
 		result, err := txn.Execute("SELECT id,document,signature1,signature2 FROM Image")
 		if err != nil {
 			return nil, err

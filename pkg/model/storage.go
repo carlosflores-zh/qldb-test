@@ -8,9 +8,8 @@ import (
 // TODO: WIP all the structs in here represent tables in QLDB
 
 type Migration struct {
-	Version   int       `ion:"version"`
-	UpdatedAt time.Time `ion:"updatedAt"`
-	Active    bool      `ion:"active"`
+	Version    int       `ion:"version"`
+	MigratedAt time.Time `ion:"migratedAt"`
 }
 
 // Control represents the proposed control record table
@@ -64,15 +63,17 @@ type PrivateKey struct {
 // Image represents an enclave image, accepted and signed by the admins
 // TODO: Can be signed in here or in Control table?
 type Image struct {
-	ID         string `ion:"id"` // Document ID: same used to get history (unique)
-	ImageID    string `ion:"imageId"`
-	Document   []byte `ion:"document"` // TODO: this one should be something similar to the attestation document
-	Signature1 []byte `ion:"signature1"`
-	Signature2 []byte `ion:"signature2"`
+	ID         string    `ion:"id"` // Document ID: same used to get history (unique)
+	ImageID    string    `ion:"imageId"`
+	Document   []byte    `ion:"document"` // TODO: this one should be something similar to the attestation document
+	Signature1 []byte    `ion:"signature1"`
+	Signature2 []byte    `ion:"signature2"`
+	createdAt  time.Time `ion:"createdAt"`
+	signedAt   time.Time `ion:"signedAt"`
 }
 
 // TransactionLog represents a transaction on any blockchain
-// TODO: trying to make it as generic as possibe, it will work as a log, doesn't need signatures
+// TODO: trying to make it as generic as possible, it will work as a log, doesn't need signatures
 type TransactionLog struct {
 	ID    string   `ion:"id"` // Document ID: same used to get history (unique)
 	TxID  string   `ion:"txID"`
@@ -91,6 +92,7 @@ type Signer struct {
 	ID            string `ion:"id"` // Document ID: same used to get history (unique)
 	PublicAddress string `ion:"publicAddress"`
 	Type          string `ion:"type"`
+	CreatedAt     string `ion:"createdAt"`
 }
 
 type Enclave struct {
@@ -100,4 +102,6 @@ type Enclave struct {
 	Signature1 []byte `ion:"signature1"` // signatures of the admins that added this enclave
 	Signature2 []byte `ion:"signature2"`
 	Note       string `ion:"note"` // note of the admins that added this enclave
+	CreatedAt  string `ion:"createdAt"`
+	UpdatedAt  string `ion:"updatedAt"`
 }

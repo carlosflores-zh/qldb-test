@@ -4,10 +4,12 @@ import (
 	"context"
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/qldb"
-	"github.com/carflores-zh/qldb-go/pkg/storage"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cast"
+
+	"github.com/carflores-zh/qldb-go/pkg/storage"
 )
 
 // PARAM 0: region
@@ -19,48 +21,49 @@ func main() {
 	region := params[0]
 
 	ctx := context.Background()
-	awsEndpoint := "http://localhost:4566"
 
-	driver, client, err := storage.Connect(awsEndpoint, region, "ledger")
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(region),
+	)
 	if err != nil {
-		log.Errorf("error connecting/creating: %v", err)
+		log.Error().Err(err).Msg("error loading config")
+		return
 	}
 
-	defer driver.Shutdown(context.Background())
-
-	dbStorage := &storage.Store{
-		Driver: driver,
-		Client: client,
+	db, err := storage.NewMigrator(cfg, "")
+	if err != nil {
+		log.Error().Err(err).Msg("error connecting/creating")
+		return
 	}
 
-	list, err := dbStorage.Client.ListLedgers(ctx, &qldb.ListLedgersInput{})
+	defer db.Driver.Shutdown(ctx)
+
+	list, err := db.Client.ListLedgers(ctx, &qldb.ListLedgersInput{})
 	if err != nil {
-		log.Errorf("error listing ledgers: %+v", err)
+		log.Error().Err(err).Msg("error listing ledgers")
 		return
 	}
 
 	for _, ledger := range list.Ledgers {
 		ledgerName := cast.ToString(ledger.Name)
 
-		log.Printf("deleting ledger: %s", ledgerName)
+		log.Info().Str("ledger", ledgerName).Msg("deleting ledger")
 
 		deleteProtection := false
 
-		_, err := dbStorage.Client.UpdateLedger(ctx, &qldb.UpdateLedgerInput{
+		_, err := db.Client.UpdateLedger(ctx, &qldb.UpdateLedgerInput{
 			Name:               &ledgerName,
 			DeletionProtection: &deleteProtection,
 		})
 		if err != nil {
-			log.Errorf("error updating ledger: %+v", err)
+			log.Error().Err(err).Msg("error updating ledger")
 		}
 
-		_, err = dbStorage.Client.DeleteLedger(ctx, &qldb.DeleteLedgerInput{
+		_, err = db.Client.DeleteLedger(ctx, &qldb.DeleteLedgerInput{
 			Name: &ledgerName,
 		})
 		if err != nil {
-			log.Errorf("error deleting ledger: %+v", err)
+			log.Error().Err(err).Msg("error deleting ledger")
 		}
 	}
-
-	log.Printf("done")
 }

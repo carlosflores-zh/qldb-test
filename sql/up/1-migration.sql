@@ -1,1 +1,13 @@
-CREATE TABLE PrivateKey;
+CREATE TABLE Migration;
+CREATE TABLE TransactionLog;
+CREATE INDEX ON TransactionLog(TxID);
+CREATE INDEX ON TransactionLog(ToAddress);
+CREATE TABLE Signer;
+CREATE INDEX ON Signer(PublicAddress);
+CREATE TABLE ControlRecord;
+CREATE INDEX ON ControlRecord(Status);
+CREATE TABLE Contract;
+CREATE INDEX ON Contract(Hash);
+CREATE TABLE Share;
+CREATE TABLE Image;
+CREATE INDEX ON Image(ID);
